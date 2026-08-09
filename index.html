@@ -626,7 +626,11 @@
             try {
                 const response = await fetch(article.file);
                 if (!response.ok) throw new Error('Not found');
-                const markdown = await response.text();
+                const raw = await response.text();
+
+                // frontmatter（---で囲まれたメタデータ部分）は本文表示から除く
+                const fmMatch = raw.match(/^---\s*\n[\s\S]*?\n---\s*\n([\s\S]*)$/);
+                const markdown = fmMatch ? fmMatch[1] : raw;
 
                 const html = marked.parse(markdown);
                 const tagsHTML = article.tags.map(tag => `<span class="article-meta-tag" data-tag="${tag}" style="cursor:pointer;">${tagLabel(tag)}</span>`).join('');
