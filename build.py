@@ -17,6 +17,12 @@ import re
 import sys
 from pathlib import Path
 
+# Windows環境でコンソールの既定エンコーディング（cp932等）と絵文字/日本語の
+# 出力がぶつかってcrashしないようにする保険
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 try:
     import yaml
 except ImportError:

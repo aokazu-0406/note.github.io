@@ -24,6 +24,12 @@ from flask import Flask, jsonify, request, send_from_directory
 
 import build as build_mod
 
+# Windows環境でコンソールの既定エンコーディング（cp932等）と絵文字/日本語の
+# 出力がぶつかってcrashしないようにする保険
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 REPO_ROOT = Path(__file__).parent
 ARTICLES_DIR = REPO_ROOT / "articles"
 PORT = 5151
@@ -206,9 +212,19 @@ def api_git_push():
     upstream未設定（初回push）の場合は自動で --set-upstream を付けてリトライする。"""
     data = request.get_json(force=True) or {}
     message = data.get("message") or "Update blog articles"
+
+    def run_git(args, check=False):
+        # Windowsではtext=Trueだけだとロケールの既定エンコーディング（cp932等）が
+        # 使われ、gitのUTF-8出力（日本語ファイル名など）でUnicodeDecodeErrorになる。
+        # encodingを明示し、万一デコードできないバイトがあってもクラッシュしないようにする。
+        return subprocess.run(
+            args, cwd=REPO_ROOT, check=check, capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
+        )
+
     try:
-        subprocess.run(["git", "add", "articles", "articles.json", "tags.json"], cwd=REPO_ROOT, check=True, capture_output=True, text=True)
-        commit = subprocess.run(["git", "commit", "-m", message], cwd=REPO_ROOT, capture_output=True, text=True)
+        run_git(["git", "add", "articles", "articles.json", "tags.json"], check=True)
+        commit = run_git(["git", "commit", "-m", message])
         nothing_to_commit = (
             "nothing to commit" in commit.stdout
             or "no changes added to commit" in commit.stdout
@@ -216,17 +232,11 @@ def api_git_push():
         if commit.returncode != 0 and not nothing_to_commit:
             return jsonify({"ok": False, "error": commit.stdout + commit.stderr}), 500
 
-        push = subprocess.run(["git", "push"], cwd=REPO_ROOT, capture_output=True, text=True)
+        push = run_git(["git", "push"])
 
         if push.returncode != 0 and "no upstream branch" in (push.stderr or ""):
-            branch = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=REPO_ROOT, capture_output=True, text=True, check=True,
-            ).stdout.strip()
-            push = subprocess.run(
-                ["git", "push", "--set-upstream", "origin", branch],
-                cwd=REPO_ROOT, capture_output=True, text=True,
-            )
+            branch = run_git(["git", "rev-parse", "--abbrev-ref", "HEAD"], check=True).stdout.strip()
+            push = run_git(["git", "push", "--set-upstream", "origin", branch])
 
         if push.returncode != 0:
             return jsonify({"ok": False, "error": (push.stdout or "") + (push.stderr or "")}), 500
