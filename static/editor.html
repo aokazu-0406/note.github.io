@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aoyagi blog — editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --navy: #34537D;
+    --taupe: #B0AC90;
+    --cream: #FAF7F1;
+    --text: #2a2a2a;
+    --danger: #a34848;
+}
+
+html, body {
+    background: linear-gradient(135deg, var(--cream) 0%, rgba(176, 172, 144, 0.06) 100%);
+    color: var(--text);
+    font-family: "Zen Kaku Gothic New", sans-serif;
+    min-height: 100vh;
+}
+
+header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(176, 172, 144, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(250, 247, 241, 0.9);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+}
+
+.brand {
+    font-family: "Shippori Mincho B1", serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--navy);
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.brand::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--taupe); }
+
+header a.blog-link {
+    font-size: 0.8rem;
+    color: var(--taupe);
+    text-decoration: none;
+    font-family: "Space Mono", monospace;
+}
+header a.blog-link:hover { color: var(--navy); }
+
+.layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem 3rem;
+    max-width: 1500px;
+    margin: 0 auto;
+}
+
+.panel {
+    background: rgba(250, 247, 241, 0.85);
+    border: 1px solid rgba(176, 172, 144, 0.2);
+    border-radius: 10px;
+    padding: 1.5rem;
+}
+
+.panel h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--navy);
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+/* ===== 記事一覧 ===== */
+#article-list { display: flex; flex-direction: column; gap: 0.6rem; max-height: 75vh; overflow-y: auto; }
+
+.article-row {
+    padding: 0.7rem 0.8rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.article-row:hover { background: rgba(52,83,125,0.06); border-color: rgba(176,172,144,0.4); }
+.article-row.active { background: rgba(52,83,125,0.12); border-color: var(--navy); }
+.article-row .date { font-family: "Space Mono", monospace; font-size: 0.68rem; color: var(--taupe); display: block; }
+.article-row .title { font-size: 0.85rem; font-weight: 600; color: var(--navy); line-height: 1.3; }
+
+.new-btn {
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: 0.6rem;
+    border: 1px dashed var(--taupe);
+    background: transparent;
+    border-radius: 6px;
+    color: var(--navy);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+.new-btn:hover { background: rgba(52,83,125,0.06); }
+
+/* ===== フォーム ===== */
+label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--navy);
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.03em;
+}
+
+input[type=text], textarea {
+    width: 100%;
+    font-family: "Space Mono", monospace;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid rgba(176,172,144,0.4);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+    margin-bottom: 1rem;
+}
+input[type=text]:focus, textarea:focus { outline: none; border-color: var(--navy); }
+
+textarea#content { min-height: 46vh; line-height: 1.6; resize: vertical; }
+
+.row2 { display: grid; grid-template-columns: 140px 1fr; gap: 1rem; }
+
+/* ===== タグ管理（左パネル） ===== */
+.tag-manage-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 30vh; overflow-y: auto; margin-bottom: 0.8rem; }
+
+.tag-manage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    background: rgba(52,83,125,0.05);
+    border: 1px solid rgba(176,172,144,0.25);
+    font-size: 0.78rem;
+}
+.tag-manage-row .name { color: var(--navy); font-family: "Space Mono", monospace; }
+.tag-manage-row .count { color: var(--taupe); font-size: 0.68rem; margin-left: 0.4rem; }
+.tag-manage-row button {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 0.85rem;
+    padding: 0.1rem 0.3rem;
+    cursor: pointer;
+}
+
+.tag-new-row { display: flex; gap: 0.5rem; }
+.tag-new-row input { margin-bottom: 0; flex: 1; }
+.tag-new-row button { white-space: nowrap; font-size: 0.75rem; padding: 0.5rem 0.8rem; }
+
+/* ===== タグ選択（フォーム） ===== */
+.tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    min-height: 2.2rem;
+}
+
+.tag-pick {
+    padding: 0.35rem 0.8rem;
+    border-radius: 20px;
+    border: 1px solid rgba(176,172,144,0.5);
+    background: transparent;
+    color: var(--text);
+    font-size: 0.78rem;
+    font-family: "Space Mono", monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tag-pick:hover { border-color: var(--navy); }
+.tag-pick.selected {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+}
+.tag-picker-empty { color: var(--taupe); font-size: 0.78rem; font-style: italic; }
+
+.actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; flex-wrap: wrap; }
+
+button {
+    font-family: "Zen Kaku Gothic New", sans-serif;
+    font-size: 0.82rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+button:hover { opacity: 0.85; }
+
+.btn-primary { background: var(--navy); color: #fff; }
+.btn-ghost { background: transparent; border-color: rgba(176,172,144,0.5); color: var(--text); }
+.btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn-template { background: transparent; border-color: rgba(176,172,144,0.5); color: var(--navy); font-size: 0.75rem; padding: 0.4rem 0.8rem; }
+
+#status { font-size: 0.75rem; margin-top: 0.8rem; min-height: 1.2em; font-family: "Space Mono", monospace; }
+#status.ok { color: #3d6b4f; }
+#status.err { color: var(--danger); }
+
+/* ===== プレビュー ===== */
+.preview-body { font-family: "Shippori Mincho B1", serif; line-height: 1.8; font-size: 0.9rem; }
+.preview-body h2 { color: var(--navy); font-size: 1.1rem; margin: 1.2rem 0 0.5rem; }
+.preview-body h3 { color: var(--navy); font-size: 1rem; margin: 1rem 0 0.4rem; }
+.preview-body p { margin-bottom: 0.8rem; }
+.preview-body code { background: rgba(176,172,144,0.15); padding: 0.1rem 0.35rem; border-radius: 4px; font-family: "Space Mono", monospace; font-size: 0.85em; }
+.preview-body pre { background: rgba(52,83,125,0.06); padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
+.preview-body pre code { background: none; padding: 0; }
+.preview-title { font-family: "Shippori Mincho B1", serif; font-weight: 700; font-size: 1.4rem; color: var(--navy); margin-bottom: 0.3rem; }
+.preview-meta { font-family: "Space Mono", monospace; font-size: 0.72rem; color: var(--taupe); margin-bottom: 1.2rem; display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.preview-meta span.tag { background: rgba(52,83,125,0.08); border: 1px solid rgba(52,83,125,0.2); border-radius: 12px; padding: 0.1rem 0.6rem; }
+
+@media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="brand">aoyagi blog editor</div>
+    <a class="blog-link" href="/blog/" target="_blank">ブログを見る →</a>
+</header>
+
+<div class="layout">
+    <!-- 記事一覧 + タグ管理 -->
+    <div class="panel">
+        <button class="new-btn" id="newBtn">＋ 新規記事</button>
+        <h2>記事一覧</h2>
+        <div id="article-list"></div>
+
+        <h2 style="margin-top:1.5rem;">タグ管理</h2>
+        <div class="tag-manage-list" id="tag-manage-list"></div>
+        <div class="tag-new-row">
+            <input type="text" id="newTagName" placeholder="新しいタグ名">
+            <button class="btn-ghost" id="addTagBtn">＋作成</button>
+        </div>
+    </div>
+
+    <!-- フォーム -->
+    <div class="panel">
+        <h2>編集</h2>
+        <label>タイトル</label>
+        <input type="text" id="title" placeholder="記事のタイトル">
+
+        <label>投稿日</label>
+        <input type="text" id="date" placeholder="YYYY-MM-DD">
+
+        <label>タグ（クリックして選択・チェックのないタグは「タグ管理」で作成）</label>
+        <div class="tag-picker" id="tag-picker"></div>
+
+        <div class="actions" style="margin-bottom:1rem;">
+            <button class="btn-template" id="templateBtn">📋 テンプレート挿入</button>
+        </div>
+
+        <label>本文（Markdown）</label>
+        <textarea id="content" placeholder="## 概要&#10;&#10;本文をここに..."></textarea>
+
+        <div class="actions">
+            <button class="btn-primary" id="saveBtn">✨ 保存する</button>
+            <button class="btn-ghost" id="resetBtn">リセット</button>
+            <button class="btn-danger" id="deleteBtn" style="display:none;">削除</button>
+        </div>
+        <div class="actions">
+            <button class="btn-ghost" id="pushBtn">🔼 Gitにpush</button>
+        </div>
+        <div id="status"></div>
+    </div>
+
+    <!-- プレビュー -->
+    <div class="panel">
+        <h2>プレビュー</h2>
+        <div class="preview-title" id="pTitle">（未入力）</div>
+        <div class="preview-meta">
+            <span id="pDate"></span>
+            <span id="pTags"></span>
+        </div>
+        <div class="preview-body" id="pBody"></div>
+    </div>
+</div>
+
+<script>
+const el = id => document.getElementById(id);
+let articles = [];
+let tags = [];           // [{id, name}]
+let selectedTags = [];    // 現在の記事に紐づけているタグIDの配列
+let currentId = null;      // nullなら新規
+
+const TEMPLATE = `## 概要
+
+ここに記事の概要や導入文を書きます。
+
+## セクション1
+
+本文をここに書きます。
+
+### サブセクション
+
+詳細な情報をここに。
+
+## セクション2
+
+別の観点や関連事項について。
+
+\`\`\`
+# コード例
+def example():
+    pass
+\`\`\`
+
+## 参考
+
+- [参考リンク](https://example.com)
+`;
+
+function todayStr() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+}
+
+function setStatus(msg, isError) {
+    const s = el('status');
+    s.textContent = msg;
+    s.className = isError ? 'err' : 'ok';
+}
+
+function renderList() {
+    const list = el('article-list');
+    list.innerHTML = '';
+    articles.forEach(a => {
+        const row = document.createElement('div');
+        row.className = 'article-row' + (a.id === currentId ? ' active' : '');
+        row.innerHTML = `<span class="date">${a.date}</span><span class="title">${escapeHtml(a.title)}</span>`;
+        row.addEventListener('click', () => loadArticle(a.id));
+        list.appendChild(row);
+    });
+}
+
+function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function fetchArticles() {
+    const res = await fetch('/api/articles');
+    articles = await res.json();
+    renderList();
+}
+
+function tagUsageCount(tagId) {
+    return articles.filter(a => a.tags.includes(tagId)).length;
+}
+
+async function fetchTags() {
+    const res = await fetch('/api/tags');
+    tags = await res.json();
+    renderTagManageList();
+    renderTagPicker();
+}
+
+function renderTagManageList() {
+    const wrap = el('tag-manage-list');
+    if (!tags.length) {
+        wrap.innerHTML = '<span class="tag-picker-empty">まだタグがありません</span>';
+        return;
+    }
+    wrap.innerHTML = '';
+    tags.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(t => {
+        const count = tagUsageCount(t.id);
+        const row = document.createElement('div');
+        row.className = 'tag-manage-row';
+        row.innerHTML = `<span><span class="name">${escapeHtml(t.name)}</span><span class="count">${count}件</span></span>`;
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '✕';
+        delBtn.title = '削除';
+        delBtn.addEventListener('click', () => deleteTag(t.id, t.name, count));
+        row.appendChild(delBtn);
+        wrap.appendChild(row);
+    });
+}
+
+function renderTagPicker() {
+    const wrap = el('tag-picker');
+    if (!tags.length) {
+        wrap.innerHTML = '<span class="tag-picker-empty">左の「タグ管理」から先にタグを作成してください</span>';
+        return;
+    }
+    wrap.innerHTML = '';
+    tags.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(t => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tag-pick' + (selectedTags.includes(t.id) ? ' selected' : '');
+        btn.textContent = t.name;
+        btn.addEventListener('click', () => {
+            if (selectedTags.includes(t.id)) {
+                selectedTags = selectedTags.filter(id => id !== t.id);
+            } else {
+                selectedTags = [...selectedTags, t.id];
+            }
+            renderTagPicker();
+            updatePreview();
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+async function createTag() {
+    const name = el('newTagName').value.trim();
+    if (!name) return;
+    const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        setStatus('❌ ' + data.error, true);
+        return;
+    }
+    tags = data.tags;
+    el('newTagName').value = '';
+    if (!selectedTags.includes(data.id)) selectedTags = [...selectedTags, data.id];
+    renderTagManageList();
+    renderTagPicker();
+    updatePreview();
+}
+
+async function deleteTag(tagId, name, count) {
+    const msg = count > 0
+        ? `「${name}」を削除しますか？\n${count}件の記事から自動的に外れます。`
+        : `「${name}」を削除しますか？`;
+    if (!confirm(msg)) return;
+
+    const res = await fetch('/api/tags/' + tagId, {method: 'DELETE'});
+    const data = await res.json();
+    articles = data.articles;
+    tags = data.tags;
+    selectedTags = selectedTags.filter(id => id !== tagId);
+    renderTagManageList();
+    renderTagPicker();
+    renderList();
+    updatePreview();
+}
+
+async function loadArticle(id) {
+    const res = await fetch('/api/articles/' + id);
+    if (!res.ok) return;
+    const data = await res.json();
+    const meta = articles.find(a => a.id === id);
+
+    // frontmatterを除いた本文部分を抜き出す
+    const body = data.raw.replace(/^---[\s\S]*?---\s*\n/, '').trim();
+
+    currentId = id;
+    el('title').value = meta.title;
+    el('date').value = meta.date;
+    selectedTags = [...meta.tags];
+    el('content').value = body;
+    el('deleteBtn').style.display = 'inline-block';
+    setStatus('');
+    renderTagPicker();
+    updatePreview();
+    renderList();
+}
+
+function newArticle() {
+    currentId = null;
+    el('title').value = '';
+    el('date').value = todayStr();
+    selectedTags = [];
+    el('content').value = '';
+    el('deleteBtn').style.display = 'none';
+    setStatus('');
+    renderTagPicker();
+    updatePreview();
+    renderList();
+}
+
+function updatePreview() {
+    const title = el('title').value.trim();
+    const date = el('date').value.trim();
+    const content = el('content').value;
+    const tagNames = selectedTags.map(id => (tags.find(t => t.id === id) || {}).name || id);
+
+    el('pTitle').textContent = title || '（未入力）';
+    el('pDate').textContent = date || '';
+    el('pTags').innerHTML = tagNames.map(n => `<span class="tag">${escapeHtml(n)}</span>`).join(' ');
+    el('pBody').innerHTML = content.trim() ? marked.parse(content) : '<span style="color:var(--taupe)">（本文プレビュー）</span>';
+}
+
+async function save() {
+    const payload = {
+        id: currentId,
+        title: el('title').value.trim(),
+        date: el('date').value.trim() || todayStr(),
+        tags: selectedTags,
+        content: el('content').value,
+    };
+
+    const res = await fetch('/api/articles', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+        setStatus('❌ ' + data.error, true);
+        return;
+    }
+
+    currentId = data.id;
+    articles = data.articles;
+    el('deleteBtn').style.display = 'inline-block';
+    setStatus('✅ 保存しました（articles.jsonも更新済み）');
+    renderList();
+    renderTagManageList();
+}
+
+async function del() {
+    if (!currentId) return;
+    if (!confirm('この記事を削除しますか？この操作は取り消せません。')) return;
+
+    const res = await fetch('/api/articles/' + currentId, {method: 'DELETE'});
+    const data = await res.json();
+    articles = data.articles;
+    setStatus('🗑️ 削除しました');
+    newArticle();
+    renderTagManageList();
+}
+
+async function pushToGit() {
+    setStatus('Gitにpush中…');
+    const title = el('title').value.trim() || 'articles';
+    const res = await fetch('/api/git-push', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: `Update article: ${title}`}),
+    });
+    const data = await res.json();
+    if (data.ok) {
+        setStatus('🔼 pushしました');
+    } else {
+        setStatus('❌ push失敗: ' + (data.error || '不明なエラー'), true);
+    }
+}
+
+el('newBtn').addEventListener('click', newArticle);
+el('resetBtn').addEventListener('click', () => currentId ? loadArticle(currentId) : newArticle());
+el('saveBtn').addEventListener('click', save);
+el('deleteBtn').addEventListener('click', del);
+el('pushBtn').addEventListener('click', pushToGit);
+el('addTagBtn').addEventListener('click', createTag);
+el('newTagName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); createTag(); } });
+el('templateBtn').addEventListener('click', () => {
+    const cur = el('content').value;
+    el('content').value = cur.trim() ? cur + '\n\n' + TEMPLATE : TEMPLATE;
+    updatePreview();
+});
+
+['title', 'date', 'content'].forEach(id => {
+    el(id).addEventListener('input', updatePreview);
+});
+
+newArticle();
+fetchArticles().then(fetchTags);
+</script>
+</body>
+</html>
